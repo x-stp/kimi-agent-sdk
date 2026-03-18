@@ -22,3 +22,5 @@ export { MediaThumbnail } from "./MediaThumbnail";
 export { BottomToolbar } from "./BottomToolbar";
 export { InlineError } from "./InlineError";
 export { QuestionDialog } from "./QuestionDialog";
+export { PlanCard } from "./PlanCard";
+export { PlanModeButton } from "./PlanModeButton";

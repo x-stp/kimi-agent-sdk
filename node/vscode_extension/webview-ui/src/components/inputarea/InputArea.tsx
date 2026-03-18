@@ -10,7 +10,9 @@ import { FilePickerMenu } from "../FilePickerMenu";
 import { MediaThumbnail } from "../MediaThumbnail";
 import { MediaPreviewModal } from "../MediaPreviewModal";
 import { BottomToolbar } from "../BottomToolbar";
+import { StreamingConfirmDialog } from "../StreamingConfirmDialog";
 import { ThinkingButton } from "../ThinkingButton";
+import { PlanModeButton } from "../PlanModeButton";
 import { useChatStore, useSettingsStore, getModelById, getModelsForMedia } from "@/stores";
 import { bridge, Events } from "@/services";
 import { Content } from "@/lib/content";
@@ -33,11 +35,30 @@ export function InputArea({ onAuthAction }: InputAreaProps) {
   const [cursorPos, setCursorPos] = useState(0);
   const [previewMedia, setPreviewMedia] = useState<string | null>(null);
 
-  const { isStreaming, sendMessage, abort, draftMedia, removeDraftMedia, hasProcessingMedia, getMediaInConversation, pendingInput, queue } = useChatStore();
+  const { isStreaming, sendMessage, abort, draftMedia, removeDraftMedia, hasProcessingMedia, getMediaInConversation, pendingInput, queue, planMode } = useChatStore();
   const { currentModel, thinkingEnabled, updateModel, toggleThinking, models, extensionConfig, getCurrentThinkingMode } = useSettingsStore();
 
   const isProcessing = hasProcessingMedia();
   const thinkingMode = getCurrentThinkingMode();
+
+  const [showPlanModeConfirm, setShowPlanModeConfirm] = useState(false);
+
+  const handleTogglePlanMode = () => {
+    // Turning OFF during streaming needs confirmation — user may want next turn, not current
+    if (planMode && isStreaming) {
+      setShowPlanModeConfirm(true);
+      return;
+    }
+    const newState = !planMode;
+    useChatStore.setState({ planMode: newState }); // optimistic
+    bridge.setPlanMode(newState);
+  };
+
+  const handleConfirmExitPlanMode = () => {
+    useChatStore.setState({ planMode: false });
+    bridge.setPlanMode(false);
+    setShowPlanModeConfirm(false);
+  };
 
   const mediaReq = useMemo(() => {
     const media = getMediaInConversation();
@@ -374,6 +395,7 @@ export function InputArea({ onAuthAction }: InputAreaProps) {
               </DropdownMenu>
 
               <ThinkingButton mode={thinkingMode} enabled={thinkingEnabled} disabled={isStreaming} onToggle={toggleThinking} />
+              <PlanModeButton active={planMode} onToggle={handleTogglePlanMode} />
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -402,6 +424,14 @@ export function InputArea({ onAuthAction }: InputAreaProps) {
         </div>
       </div>
       <MediaPreviewModal src={previewMedia} onClose={() => setPreviewMedia(null)} />
+      <StreamingConfirmDialog
+        open={showPlanModeConfirm}
+        onOpenChange={setShowPlanModeConfirm}
+        title="Exit Plan Mode"
+        description="The agent is still working. Exiting plan mode now will affect the current turn. Are you sure you want to exit plan mode immediately?"
+        confirmLabel="Exit Now"
+        onConfirm={handleConfirmExitPlanMode}
+      />
     </div>
   );
 }
